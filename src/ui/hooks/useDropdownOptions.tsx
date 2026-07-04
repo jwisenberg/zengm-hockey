@@ -135,6 +135,7 @@ const dropdownValues: Record<string, string | ResponsiveOption[]> = {
 	reSigned: "Re-signed",
 	release: "Released",
 	minorLeague: "Minor League",
+	injuredReserve: "Injured Reserve",
 	trade: "Trades",
 	team: "Team",
 	opponent: makeResponsiveDropdownOption("Opp", "Opponent"),
@@ -450,6 +451,7 @@ const useDropdownOptions = (
 			"reSigned",
 			"release",
 			"minorLeague",
+			"injuredReserve",
 			"trade",
 		];
 	} else if (field === "teamOpponent") {
