@@ -614,6 +614,7 @@ export type GameAttributesLeague = {
 	maxRosterSize: number;
 	minContract: number;
 	minContractLength: number;
+	minorLeagueMaxRosterSize: number;
 	minPayroll: number;
 	minRetireAge: number;
 	minRosterSize: number;
@@ -853,6 +854,7 @@ export type LogEventType =
 	| "injured"
 	| "injuredList"
 	| "madePlayoffs"
+	| "minorLeague"
 	| "newLeague"
 	| "newTeam"
 	| "playerFeat"
@@ -1202,6 +1204,7 @@ export type PlayerWithoutKey<PlayerRatings = MinimalPlayerRatings> = {
 	jerseyNumber?: string; // Should be undefined only for a player who has never been on a team, or a player signed to his first team before the preseason
 	lastName: string;
 	moodTraits: MoodTrait[];
+	minorLeague?: boolean; // Currently only used for hockey's minor league roster feature. Player is still on the team (tid) but not part of the active roster, so doesn't play in games and doesn't count against roster size limits (but does still count against the salary cap).
 	numPlayersTradedAwayNormalized?: Record<number, number>;
 	note?: string;
 	noteBool?: 1; // Keep in sync with note - for indexing

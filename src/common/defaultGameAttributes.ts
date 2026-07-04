@@ -172,6 +172,7 @@ export const defaultGameAttributes: GameAttributesLeagueWithHistory = {
 	maxContractLength: 5,
 	minRosterSize: 10,
 	maxRosterSize: 15,
+	minorLeagueMaxRosterSize: 0, // 0 means the minor league roster feature is disabled
 	softCapTradeSalaryMatch: 125,
 	numGames: wrapFromStart(82), // per season
 	numGamesDiv: 16,
@@ -462,6 +463,7 @@ export const hockeyOverrides: Partial<GameAttributesLeagueWithHistory> =
 				maxContract: 13000,
 				minRosterSize: 24,
 				maxRosterSize: 26,
+				minorLeagueMaxRosterSize: 20,
 				// Injury rate per player per possession, basically. But it's a little more complicated than that.
 				injuryRate: 1 / 10000,
 				draftType: "nhl2021",
