@@ -65,7 +65,9 @@ const updateNegotiationList = async () => {
 	}
 	sumContracts /= 1000;
 
-	const payroll = await team.getPayroll(userTid);
+	const payroll = await team.getPayroll(userTid, undefined, {
+		forCapCompliance: true,
+	});
 	const capSpace = (g.get("salaryCap") - payroll) / 1000;
 
 	const userPlayers = await idb.getCopies.playersPlus(userPlayersAll, {

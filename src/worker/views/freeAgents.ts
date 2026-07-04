@@ -152,7 +152,9 @@ const updateFreeAgents = async (
 			freeAgencySeason = season;
 		}
 
-		const payroll = await team.getPayroll(userTid);
+		const payroll = await team.getPayroll(userTid, undefined, {
+			forCapCompliance: true,
+		});
 		const playersByType = await getPlayers(season, freeAgencySeason, type);
 		const capSpace = (g.get("salaryCap") - payroll) / 1000;
 

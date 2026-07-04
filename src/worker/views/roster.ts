@@ -1,4 +1,6 @@
 import { PHASE, POSITIONS } from "../../common/constants.ts";
+import { LTIR_MIN_GAMES } from "../../common/constants.hockey.ts";
+import { MINOR_LEAGUE_CAP_EXEMPTION_THRESHOLD } from "../../common/constants.hockey.ts";
 import { finances, season, team } from "../core/index.ts";
 import { idb } from "../db/index.ts";
 import { g, helpers } from "../util/index.ts";
@@ -131,6 +133,19 @@ const updateRoster = async (
 			inputs.tid === g.get("userTid") &&
 			!g.get("spectator");
 
+		const showMinorLeague =
+			isSport("hockey") &&
+			g.get("minorLeagueMaxRosterSize") > 0 &&
+			inputs.season === g.get("season") &&
+			inputs.tid === g.get("userTid") &&
+			!g.get("spectator");
+
+		const showInjuredReserve =
+			isSport("hockey") &&
+			inputs.season === g.get("season") &&
+			inputs.tid === g.get("userTid") &&
+			!g.get("spectator");
+
 		const seasonAttrs: TeamSeasonAttr[] = [
 			"profit",
 			"won",
@@ -190,6 +205,8 @@ const updateRoster = async (
 			"mood",
 			"value",
 			"awards",
+			"minorLeague",
+			"injuryReserve",
 		]; // tid and draft are used for checking if a player can be released without paying his salary
 
 		const ratings = ["ovr", "pot", "dovr", "dpot", "skills", "pos", "ovrs"];
@@ -207,7 +224,9 @@ const updateRoster = async (
 			const playersAll = await addMood(
 				await idb.cache.players.indexGetAll("playersByTid", inputs.tid),
 			);
-			payroll = await team.getPayroll(inputs.tid);
+			payroll = await team.getPayroll(inputs.tid, undefined, {
+				forCapCompliance: true,
+			});
 			luxuryTaxAmount = finances.getLuxuryTaxAmount(payroll);
 			minPayrollAmount = finances.getMinPayrollAmount(payroll);
 
@@ -238,7 +257,22 @@ const updateRoster = async (
 			if (isSport("basketball")) {
 				players.sort((a, b) => a.rosterOrder - b.rosterOrder);
 			} else {
-				players.sort((a, b) => sortByPos(b) - sortByPos(a));
+				const rosterGroup = (p: any) => {
+					if (p.injuryReserve !== undefined) {
+						return 1;
+					}
+					if (p.minorLeague) {
+						return 2;
+					}
+					return 0;
+				};
+				players.sort((a, b) => {
+					const groupDiff = rosterGroup(a) - rosterGroup(b);
+					if (groupDiff !== 0) {
+						return groupDiff;
+					}
+					return sortByPos(b) - sortByPos(a);
+				});
 			}
 
 			for (const p of players) {
@@ -346,6 +380,7 @@ const updateRoster = async (
 			abbrev: inputs.abbrev,
 			editable,
 			maxRosterSize: g.get("maxRosterSize"),
+			minorLeagueMaxRosterSize: g.get("minorLeagueMaxRosterSize"),
 			numPlayersOnCourt: g.get("numPlayersOnCourt"),
 			luxuryTaxAmount,
 			minPayrollAmount,
@@ -359,6 +394,10 @@ const updateRoster = async (
 				inputs.tid === g.get("userTid") &&
 				g.get("spectator"),
 			showRelease,
+			showMinorLeague,
+			showInjuredReserve,
+			ltirMinGames: LTIR_MIN_GAMES,
+			minorLeagueCapExemption: MINOR_LEAGUE_CAP_EXEMPTION_THRESHOLD,
 			showTradeFor:
 				inputs.season === g.get("season") &&
 				inputs.tid !== g.get("userTid") &&

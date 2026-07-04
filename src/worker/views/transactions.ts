@@ -39,6 +39,8 @@ const updateEventLog = async (
 				(event) =>
 					event.type === "reSigned" ||
 					event.type === "release" ||
+					event.type === "minorLeague" ||
+					event.type === "injuredReserve" ||
 					event.type === "trade" ||
 					event.type === "freeAgent" ||
 					event.type === "draft",

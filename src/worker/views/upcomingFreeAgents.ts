@@ -72,6 +72,7 @@ const updateUpcomingFreeAgents = async (
 	const projectedPayroll = await team.getPayroll(
 		g.get("userTid"),
 		inputs.season,
+		{ forCapCompliance: true },
 	);
 	const projectedCapSpace = g.get("salaryCap") - projectedPayroll;
 
