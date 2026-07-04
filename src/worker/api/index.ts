@@ -12,6 +12,7 @@ import {
 	LEAGUE_DATABASE_VERSION,
 	REAL_PLAYERS_INFO,
 } from "../../common/constants.ts";
+import { LTIR_MIN_GAMES } from "../../common/constants.hockey.ts";
 import actions from "./actions.ts";
 import leagueFileUpload, {
 	decompressStreamIfNecessary,
@@ -1879,7 +1880,9 @@ const getNegotiationProps = async (pid: number) => {
 		}
 	}
 
-	const payroll = await team.getPayroll(userTid);
+	const payroll = await team.getPayroll(userTid, undefined, {
+		forCapCompliance: true,
+	});
 
 	const t = await idb.getCopy.teamsPlus({
 		tid: g.get("userTid"),
@@ -3164,6 +3167,216 @@ const releasePlayer = async ({ pids }: { pids: number[] }) => {
 		type: "dummyExpiringContracts",
 		pids,
 	});
+};
+
+const assignPlayersToMinors = async ({ pids }: { pids: number[] }) => {
+	if (pids.length === 0) {
+		return;
+	}
+
+	if (g.get("minorLeagueMaxRosterSize") <= 0) {
+		return "Your league does not have a minor league roster enabled. You can enable it in God Mode settings.";
+	}
+
+	const players = await idb.getCopies.players({ pids });
+	if (players.length !== pids.length) {
+		return "Player not found";
+	}
+
+	if (players.some((p) => p.tid !== g.get("userTid"))) {
+		return "You aren't allowed to do this";
+	}
+
+	if (players.some((p) => p.injuryReserve !== undefined)) {
+		return "Activate players off injured reserve before sending them to the minors.";
+	}
+
+	const tid = g.get("userTid");
+	const currentMinorLeaguers = (
+		await idb.cache.players.indexGetAll("playersByTid", tid)
+	).filter((p) => p.minorLeague);
+
+	const numAlreadyInMinors = new Set(currentMinorLeaguers.map((p) => p.pid));
+	const numToAdd = players.filter((p) => !numAlreadyInMinors.has(p.pid)).length;
+
+	if (
+		currentMinorLeaguers.length + numToAdd >
+		g.get("minorLeagueMaxRosterSize")
+	) {
+		return `Your minor league roster can only hold ${g.get(
+			"minorLeagueMaxRosterSize",
+		)} players.`;
+	}
+
+	for (const p of players) {
+		if (!p.minorLeague) {
+			p.minorLeague = true;
+			await idb.cache.players.put(p);
+
+			logEvent({
+				type: "minorLeague",
+				text: `<a href="${helpers.leagueUrl(["player", p.pid])}">${
+					p.firstName
+				} ${
+					p.lastName
+				}</a> was sent to the minor leagues.`,
+				showNotification: false,
+				pids: [p.pid],
+				tids: [p.tid],
+			});
+		}
+	}
+
+	await toUI("realtimeUpdate", [["playerMovement"]]);
+};
+
+const recallPlayersFromMinors = async ({ pids }: { pids: number[] }) => {
+	if (pids.length === 0) {
+		return;
+	}
+
+	const players = await idb.getCopies.players({ pids });
+	if (players.length !== pids.length) {
+		return "Player not found";
+	}
+
+	if (players.some((p) => p.tid !== g.get("userTid"))) {
+		return "You aren't allowed to do this";
+	}
+
+	const tid = g.get("userTid");
+	const currentActivePlayers = (
+		await idb.cache.players.indexGetAll("playersByTid", tid)
+	).filter((p) => !p.minorLeague && p.injuryReserve === undefined);
+
+	const numAlreadyActive = new Set(currentActivePlayers.map((p) => p.pid));
+	const numToAdd = players.filter((p) => !numAlreadyActive.has(p.pid)).length;
+
+	if (currentActivePlayers.length + numToAdd > g.get("maxRosterSize")) {
+		return `Your active roster can only hold ${g.get(
+			"maxRosterSize",
+		)} players. Release or trade a player, or wait until you have room, before recalling from the minors.`;
+	}
+
+	for (const p of players) {
+		if (p.minorLeague) {
+			p.minorLeague = false;
+			await idb.cache.players.put(p);
+
+			logEvent({
+				type: "minorLeague",
+				text: `<a href="${helpers.leagueUrl(["player", p.pid])}">${
+					p.firstName
+				} ${
+					p.lastName
+				}</a> was recalled from the minor leagues.`,
+				showNotification: false,
+				pids: [p.pid],
+				tids: [p.tid],
+			});
+		}
+	}
+
+	await toUI("realtimeUpdate", [["playerMovement"]]);
+};
+
+const assignPlayersToIR = async ({
+	pids,
+	ltir,
+}: {
+	pids: number[];
+	ltir: boolean;
+}) => {
+	if (pids.length === 0) {
+		return;
+	}
+
+	const players = await idb.getCopies.players({ pids });
+	if (players.length !== pids.length) {
+		return "Player not found";
+	}
+
+	if (players.some((p) => p.tid !== g.get("userTid"))) {
+		return "You aren't allowed to do this";
+	}
+
+	if (players.some((p) => p.injury.gamesRemaining <= 0)) {
+		return "Only injured players can be placed on injured reserve.";
+	}
+
+	if (ltir && players.some((p) => p.injury.gamesRemaining < LTIR_MIN_GAMES)) {
+		return `Players must be injured for at least ${LTIR_MIN_GAMES} more games to be eligible for LTIR.`;
+	}
+
+	for (const p of players) {
+		if (p.injuryReserve !== (ltir ? "ltir" : "ir")) {
+			p.injuryReserve = ltir ? "ltir" : "ir";
+			p.minorLeague = false;
+			await idb.cache.players.put(p);
+
+			logEvent({
+				type: "injuredReserve",
+				text: `<a href="${helpers.leagueUrl(["player", p.pid])}">${
+					p.firstName
+				} ${p.lastName}</a> was placed on ${
+					ltir ? "long-term injured reserve" : "injured reserve"
+				}.`,
+				showNotification: false,
+				pids: [p.pid],
+				tids: [p.tid],
+			});
+		}
+	}
+
+	await toUI("realtimeUpdate", [["playerMovement"]]);
+};
+
+const activatePlayersFromIR = async ({ pids }: { pids: number[] }) => {
+	if (pids.length === 0) {
+		return;
+	}
+
+	const players = await idb.getCopies.players({ pids });
+	if (players.length !== pids.length) {
+		return "Player not found";
+	}
+
+	if (players.some((p) => p.tid !== g.get("userTid"))) {
+		return "You aren't allowed to do this";
+	}
+
+	const tid = g.get("userTid");
+	const currentActivePlayers = (
+		await idb.cache.players.indexGetAll("playersByTid", tid)
+	).filter((p) => !p.minorLeague && p.injuryReserve === undefined);
+
+	const numAlreadyActive = new Set(currentActivePlayers.map((p) => p.pid));
+	const numToAdd = players.filter((p) => !numAlreadyActive.has(p.pid)).length;
+
+	if (currentActivePlayers.length + numToAdd > g.get("maxRosterSize")) {
+		return `Your active roster can only hold ${g.get(
+			"maxRosterSize",
+		)} players. Release or trade a player, or wait until you have room, before activating from injured reserve.`;
+	}
+
+	for (const p of players) {
+		if (p.injuryReserve !== undefined) {
+			p.injuryReserve = undefined;
+			await idb.cache.players.put(p);
+
+			logEvent({
+				type: "injuredReserve",
+				text: `<a href="${helpers.leagueUrl(["player", p.pid])}">${
+					p.firstName
+				} ${p.lastName}</a> was activated off injured reserve.`,
+				showNotification: false,
+				pids: [p.pid],
+				tids: [p.tid],
+			});
+		}
+	}
+
+	await toUI("realtimeUpdate", [["playerMovement"]]);
 };
 
 const expandVote = (
@@ -5290,6 +5503,10 @@ export default {
 		regenerateDraftClass,
 		regenerateSchedule,
 		releasePlayer,
+		assignPlayersToMinors,
+		recallPlayersFromMinors,
+		assignPlayersToIR,
+		activatePlayersFromIR,
 		expandVote,
 		relocateVote,
 		cloneLeague,
