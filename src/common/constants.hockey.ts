@@ -378,3 +378,13 @@ export const NUM_PLAYERS_PER_LINE = {
 	D: 2,
 	G: 1,
 };
+
+// Minimum injury.gamesRemaining for a player to be eligible for Long-Term Injured Reserve (LTIR).
+// Loosely modeled on the real NHL's "out 10 games and 24 days" rule, using this game's existing
+// "long" injury classification threshold (see writePlayerStats.ts) as a stand-in for both conditions.
+export const LTIR_MIN_GAMES = 20;
+
+// Minor league players are "buried" for salary cap purposes: only the portion of their salary
+// above this threshold (in thousands of dollars) counts against the cap. The team still pays
+// their full salary - this only affects cap compliance, not actual team expenses.
+export const MINOR_LEAGUE_CAP_EXEMPTION_THRESHOLD = 1225;

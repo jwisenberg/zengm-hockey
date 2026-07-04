@@ -3281,6 +3281,10 @@ const cols: {
 		sortSequence: ["desc", "asc"],
 		sortType: "number",
 	},
+	Negotiate: {
+		sortSequence: [],
+		width: "1px",
+	},
 	Note: {},
 	Odds: {
 		desc: "Pre-lottery odds of getting this pick",
@@ -3417,6 +3421,16 @@ const cols: {
 		sortType: "record",
 	},
 	Relation: {},
+	Minors: {
+		desc: "Minor League Roster",
+		noSearch: true,
+		sortSequence: [],
+	},
+	IR: {
+		desc: "Injured Reserve",
+		noSearch: true,
+		sortSequence: [],
+	},
 	Release: {
 		desc: "Release Player",
 		noSearch: true,

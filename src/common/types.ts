@@ -853,6 +853,7 @@ export type LogEventType =
 	| "info"
 	| "injured"
 	| "injuredList"
+	| "injuredReserve"
 	| "madePlayoffs"
 	| "minorLeague"
 	| "newLeague"
@@ -1205,6 +1206,7 @@ export type PlayerWithoutKey<PlayerRatings = MinimalPlayerRatings> = {
 	lastName: string;
 	moodTraits: MoodTrait[];
 	minorLeague?: boolean; // Currently only used for hockey's minor league roster feature. Player is still on the team (tid) but not part of the active roster, so doesn't play in games and doesn't count against roster size limits (but does still count against the salary cap).
+	injuryReserve?: "ir" | "ltir"; // Currently only used for hockey's Injured Reserve / Long-Term Injured Reserve feature. Player is still on the team (tid) but not part of the active roster, so doesn't play in games and doesn't count against roster size limits. "ir" still counts fully against the salary cap; "ltir" does not count against the salary cap while active (cap relief), though the team still pays the salary.
 	numPlayersTradedAwayNormalized?: Record<number, number>;
 	note?: string;
 	noteBool?: 1; // Keep in sync with note - for indexing
